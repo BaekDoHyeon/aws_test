@@ -17,16 +17,22 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "${{ secrets.GHCR_TOKEN }}" | sudo docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
-            sudo docker pull ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp:latest
-            sudo docker stop myapp || true
-            sudo docker rm myapp || true
-            sudo docker run -d --name myapp \
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+            docker pull ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp:latest
+            docker stop myapp || true
+            docker rm myapp || true
+            docker run -d --name myapp \
               -p 8080:8080 \
               -e SPRING_PROFILES_ACTIVE=prod \
               -e DB_URL="${{ secrets.DB_URL }}" \
               -e DB_USERNAME="${{ secrets.DB_USERNAME }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
               ghcr.io/${{ secrets.GHCR_USERNAME }}/myapp:latest
-            sleep 5
-            curl -f http://localhost:8080/actuator/health || (echo "Health check failed!" && exit 1)
+            echo "⏳ Waiting for app to start..."
+            sleep 20
+            echo "🔍 Checking health..."
+            if ! curl -f http://localhost:8080/actuator/health; then
+              echo "❌ Health check failed! Printing container logs..."
+              docker logs myapp
+              exit 1
+            fi
